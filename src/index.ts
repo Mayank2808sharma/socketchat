@@ -1,43 +1,31 @@
-import express, { Request, Response } from "express";
-import { createServer } from "http";
-import cors from "cors";
-import { Server } from "socket.io";
+import express from 'express';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import connectDB from './config/db';
+import socketManager from './sockets/socketManager';
+
+dotenv.config();
+connectDB();
 
 const app = express();
-const server = createServer(app);
-
-// socket io server
-const io = new Server(server, {
+const httpServer = createServer(app);
+const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
+    origin: "*",
+    methods: ["GET", "POST"]
   },
 });
+
 app.use(cors());
-app.get("/", (req: Request, res: Response) => {
-  res.send("<h1>Hello world</h1>");
+app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.send('<h1>Hello world from Chat App</h1>');
 });
 
-io.on("connection", (socket) => {
-  console.log(`user is connected ${socket.id}`);
+socketManager(io);
 
-  socket.on('join room', ({ username, room }) => {
-    socket.join(room);
-    console.log(`${username} joined room: ${room}`);
-    socket.to(room).emit('chat message', `${username} has joined the room.`);
-  });
-
-  socket.on('chat message', ({ room, message, username }) => {
-    io.to(room).emit('chat message', `${username}: ${message}`);
-  });
-
-
-
-  socket.on("disconnect", () => {
-    console.log("user disconnected");
-  })
-});
-
-server.listen(3000, () => {
-  console.log("server running at http://localhost:3000");
-});
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
